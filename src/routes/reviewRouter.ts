@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { ReviewController } from '../controllers/reviewController.ts';
+import { authenticate } from '../middleware/authenticate.ts';
+import { authorize } from '../middleware/authorize.ts';
+import { validate } from '../middleware/validate.ts';
+import { idParamSchema } from '../schemas/stallSchema.ts';
+const reviewRouter = Router();
+const reviewController = new ReviewController();
+reviewRouter.use(authenticate, authorize('admin'));
+reviewRouter.get('/', reviewController.getReviews);
+reviewRouter.delete('/:id', validate('params', idParamSchema), reviewController.deleteReview);
+export { reviewRouter };

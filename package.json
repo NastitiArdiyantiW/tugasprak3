@@ -1,0 +1,35 @@
+{
+  "name": "tugas3-review-kantin",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Tugas 3 - Validasi, Error Handling, JWT Auth & Role Authorization (Review Kantin)",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "seed:test-accounts": "tsx src/scripts/seedTestAccounts.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^17.4.2",
+    "drizzle-orm": "^1.0.0-rc.5-5935859",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "mssql": "^11.0.2",
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/mssql": "^9.1.11",
+    "@types/node": "^26.5.1",
+    "@types/swagger-ui-express": "^4.1.8",
+    "drizzle-kit": "^1.0.0-rc.5-5935859",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}

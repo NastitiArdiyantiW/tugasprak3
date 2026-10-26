@@ -1,0 +1,927 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Review Kantin API - Tugas 3",
+    "version": "2.0.0",
+    "description": "REST API Review Kantin dengan validasi Zod, format error konsisten, autentikasi JWT, dan otorisasi role."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "fail"
+          },
+          "message": {
+            "type": "string",
+            "example": "Validasi gagal"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "errors"
+        ]
+      },
+      "RegisterInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100,
+            "example": "Sari Nugraheni"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 150,
+            "example": "sari@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "example": "rahasia123"
+          }
+        }
+      },
+      "LoginInput": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 150,
+            "example": "sari@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "example": "rahasia123"
+          }
+        }
+      },
+      "StallInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100,
+            "example": "Warung Baru"
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 50,
+            "example": "Nasi"
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Kantin FK"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Warung makanan"
+          }
+        }
+      },
+      "StallUpdateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "category": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "ReviewInput": {
+        "type": "object",
+        "required": [
+          "rating"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "example": 5
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "Makanannya enak"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "owner",
+                      "customer"
+                    ]
+                  }
+                }
+              },
+              "token": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Memeriksa server dan koneksi database",
+        "responses": {
+          "200": {
+            "description": "Server dan database terhubung"
+          },
+          "500": {
+            "description": "Koneksi database gagal"
+          }
+        }
+      }
+    },
+    "/api/v1/stalls": {
+      "get": {
+        "summary": "Daftar warung dengan filter dan pagination",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 50
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar warung"
+          },
+          "400": {
+            "description": "Validasi gagal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Membuat warung (owner/admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StallInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Warung dibuat"
+          },
+          "400": {
+            "description": "Validasi gagal"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Role tidak memiliki akses"
+          }
+        }
+      }
+    },
+    "/api/v1/stalls/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Detail warung",
+        "responses": {
+          "200": {
+            "description": "Detail warung"
+          },
+          "400": {
+            "description": "ID tidak valid"
+          },
+          "404": {
+            "description": "Warung tidak ditemukan"
+          }
+        }
+      },
+      "put": {
+        "summary": "Mengubah warung (owner hanya miliknya/admin semua)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StallUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Warung diperbarui"
+          },
+          "400": {
+            "description": "Validasi gagal"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Bukan pemilik warung atau role tidak sesuai"
+          },
+          "404": {
+            "description": "Warung tidak ditemukan"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Menghapus warung (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Warung dihapus"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          },
+          "404": {
+            "description": "Warung tidak ditemukan"
+          }
+        }
+      }
+    },
+    "/api/v1/stalls/{id}/reviews": {
+      "post": {
+        "summary": "Menambah review untuk warung (semua role yang login)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Review dibuat"
+          },
+          "400": {
+            "description": "Validasi gagal"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "409": {
+            "description": "Review duplikat atau konflik data"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Mendaftarkan akun customer baru",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registrasi berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validasi gagal"
+          },
+          "409": {
+            "description": "Email sudah terdaftar"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login dan mendapatkan JWT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login berhasil",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validasi gagal"
+          },
+          "401": {
+            "description": "Email atau password salah"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Melihat identitas dari JWT yang sedang digunakan",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Identitas pengguna"
+          },
+          "401": {
+            "description": "Token tidak ada atau tidak valid"
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "summary": "Daftar user (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar user"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      },
+      "post": {
+        "summary": "Membuat user (admin, endpoint legacy Tugas 2)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "User dibuat"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Detail user (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail user"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          },
+          "404": {
+            "description": "User tidak ditemukan"
+          }
+        }
+      }
+    },
+    "/api/v1/menu-items": {
+      "get": {
+        "summary": "Daftar menu (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar menu"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      },
+      "post": {
+        "summary": "Menambah menu (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Menu dibuat"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/menu-items/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "get": {
+        "summary": "Detail menu (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detail menu"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      },
+      "put": {
+        "summary": "Memperbarui menu (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Menu diperbarui"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Menghapus menu (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Menu dihapus"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/reviews": {
+      "get": {
+        "summary": "Daftar review (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar review"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/reviews/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Menghapus review (admin, endpoint legacy Tugas 2)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review dihapus"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/likes": {
+      "post": {
+        "summary": "Menambah like (admin, endpoint legacy Tugas 2)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Like dibuat"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/likes/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Menghapus like (admin, endpoint legacy Tugas 2)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Like dihapus"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/flags": {
+      "get": {
+        "summary": "Daftar flags (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar flags"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/flags/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      ],
+      "put": {
+        "summary": "Mengubah status flag (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status flag diperbarui"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    },
+    "/api/v1/audit-logs": {
+      "get": {
+        "summary": "Daftar audit log (admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daftar audit log"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      },
+      "post": {
+        "summary": "Membuat audit log (admin, endpoint legacy Tugas 2)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Audit log dibuat"
+          },
+          "401": {
+            "description": "Belum login"
+          },
+          "403": {
+            "description": "Hanya admin"
+          }
+        }
+      }
+    }
+  }
+}
